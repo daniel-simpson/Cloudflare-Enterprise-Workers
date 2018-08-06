@@ -1,0 +1,48 @@
+# Variables coming from bitbucket pipeline setup UI:
+# - AZURE_ACCESS_KEY
+# - AZURE_CONTAINER_NAME
+# - AZURE_STORAGE_ACCOUNT
+# - CF_ACCOUNT_TAG (found in Cloudflare dashboard)
+# - CF_AUTH_KEY (found in Cloudflare portal auth)
+# - CF_LOGIN_EMAIL
+
+# Note: Uploading to blob storage from bash inspired by the following script: https://gist.github.com/rtyler/30e51dc72bed23718388c43f9c11da76
+
+pipelines:
+  branches:
+    master:
+      - parallel:
+        - step:
+            name: Upload JSON configuration to Azure blob storage
+            script:
+              - echo "Uploading JSON configuration to Azure blob storage"
+              - cd src
+              - for FILENAME in *.json; do
+              -   echo "Updating config file $FILENAME"
+              -   HTTP_METHOD="PUT"
+              -   request_date=$(TZ=GMT date "+%a, %d %h %Y %H:%M:%S %Z")
+              -   storage_service_version="2015-02-21"
+              -   x_ms_date_h="x-ms-date:$request_date"
+              -   x_ms_version_h="x-ms-version:$storage_service_version"
+              -   x_ms_blob_type_h="x-ms-blob-type:BlockBlob"
+              -   FILE_LENGTH=$(wc --bytes < ${FILENAME})
+              -   FILE_TYPE=$(file --mime-type -b ${FILENAME})
+              -   canonicalized_headers="${x_ms_blob_type_h}\n${x_ms_date_h}\n${x_ms_version_h}"
+              -   canonicalized_resource="/${AZURE_STORAGE_ACCOUNT}/${AZURE_CONTAINER_NAME}/${FILENAME}"
+              -   string_to_sign="${HTTP_METHOD}\n\n\n${FILE_LENGTH}\n\n${FILE_TYPE}\n\n\n\n\n\n\n${canonicalized_headers}\n${canonicalized_resource}"
+              -   decoded_hex_key="$(echo -n $AZURE_ACCESS_KEY | base64 -d -w0 | xxd -p -c256)"
+              -   signature=$(printf "$string_to_sign" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$decoded_hex_key" -binary | base64 -w0)
+              -   authorization_header="Authorization:SharedKey $AZURE_STORAGE_ACCOUNT:$signature"
+              -   OUTPUT_FILE="https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${AZURE_CONTAINER_NAME}/${FILENAME}"
+              -   curl -X ${HTTP_METHOD} -H "$x_ms_date_h" -H "$x_ms_version_h" -H "$x_ms_blob_type_h" -H "$authorization_header" -H "Content-Type:${FILE_TYPE}" ${OUTPUT_FILE} --data-binary "@$FILENAME" 
+              - done
+        - step:
+            name: Update Cloudflare worker scripts
+            script:
+              - echo "Updating cloudflare worker scripts..."
+              - cd src
+              - for filename in *.js; do
+              -   echo "Updating worker script $filename..."
+              -   scriptName=${filename%.js}  #Remove the file extension, the POST method below will fail is the extension is present
+              -   curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_TAG/workers/scripts/$scriptName" -H "X-Auth-Email:$CF_LOGIN_EMAIL" -H "X-Auth-Key:$CF_AUTH_KEY" -H "Content-Type:application/javascript" --data-binary "@$filename"
+              - done

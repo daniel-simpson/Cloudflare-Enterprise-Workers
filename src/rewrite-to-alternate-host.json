@@ -1,0 +1,33 @@
+[
+  {
+    "name": "HTTP image rewrite",
+    "scheme": "http:",
+    "host": "alternatehost.domain.com",
+    "headers": {
+      "HTTP_HOST": "www.domain.com"
+    },
+    "cf": {
+      "resolveOverride": "alternatehost.domain.com"
+    },
+    "patterns": [
+      "^/images.*$"
+    ]
+  },
+  {
+    "name": "HTTPS static assets rewrite",
+    "scheme": "https:",
+    "host": "alternatehost.domain.com",
+    "headers": [
+      {
+        "name": "HTTP_HOST",
+        "value": "www.domain.com"
+      }
+    ],
+    "cf": {
+      "resolveOverride": "alternatehost.domain.com"
+    },
+    "patterns": [
+      "^/static.*$"
+    ]
+  }
+]

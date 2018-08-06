@@ -1,0 +1,5 @@
+
+node_modules/
+
+# Ignore npm lock, use yarn (regardless of dev's preferences)
+package-lock.json

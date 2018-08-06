@@ -1,0 +1,14 @@
+{
+  "name": "cloudflare",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dan Simpson <daniel_simpson1988@hotmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^1.13.0"
+  }
+}
